@@ -63,5 +63,6 @@ class DiffFile:
         return result
 
     def estimate_tokens(self) -> int:
+        line_count = sum(len(h.lines) for h in self.hunks)
         total_chars = sum(len(l.content) for h in self.hunks for l in h.lines)
-        return total_chars // 4
+        return max(line_count, total_chars // 4)

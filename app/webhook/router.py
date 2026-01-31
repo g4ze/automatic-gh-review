@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
@@ -30,15 +31,27 @@ async def webhook(
 ) -> dict:
     body = await request.body()
 
-    # 1. Verify signature
+    # 1. Verify signature (always against the raw body bytes)
     if not verify_signature(body, settings.github_webhook_secret, x_hub_signature_256):
-        raise HTTPException(status_code= 401, detail="Invalid signature")
+        raise HTTPException(status_code=401, detail="Invalid signature")
 
     # 2. Only handle issue_comment events
     if x_github_event != "issue_comment":
         return {"status": "ignored", "reason": f"event={x_github_event}"}
 
-    event = IssueCommentEvent.model_validate_json(body)
+    # 3. Extract JSON — GitHub sends either raw JSON (application/json)
+    #    or form-encoded with a `payload` field (application/x-www-form-urlencoded)
+    content_type = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in content_type:
+        form = parse_qs(body.decode())
+        payload_values = form.get("payload")
+        if not payload_values:
+            raise HTTPException(status_code=400, detail="Missing payload field")
+        json_bytes = payload_values[0].encode()
+    else:
+        json_bytes = body
+
+    event = IssueCommentEvent.model_validate_json(json_bytes)
 
     # 3. Gate checks
     if event.action != "created":
