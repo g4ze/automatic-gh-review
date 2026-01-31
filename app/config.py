@@ -11,10 +11,10 @@ class Settings(BaseSettings):
     github_webhook_secret: str
     github_token: str
 
-    openai_api_key: str
+    gemini_api_key: str
 
     # LLM
-    litellm_model: str = "gpt-4o"
+    litellm_model: str 
     litellm_max_tokens: int = 4096
     litellm_temperature: float = 0.2
 
